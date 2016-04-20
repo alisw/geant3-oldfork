@@ -47,21 +47,53 @@ ROOT_GENERATE_DICTIONARY(
   LINKDEF ${CMAKE_CURRENT_SOURCE_DIR}/TGeant3/geant3LinkDef.h)
 
 #-------------------------------------------------------------------------------
+# Adjust compiler flags and configuration
+#
+
+# receive warnings and force fix of uninitialized variables
+add_definitions(-Wall -finit-local-zero)
+
+# make sure a default build type is used
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING
+      "Choose the type of build, options are: Debug Release RelWithDebInfo
+       MinSizeRel." FORCE)
+endif(NOT CMAKE_BUILD_TYPE)
+
+
+#-------------------------------------------------------------------------------
 # Locate sources for this project
 #
 set(directories
-    added gbase gcons geocad ggeom gheisha ghits ghrout ghutils giface giopa
-    gkine gparal gphys gscan gstrag gtrak matx55 miface miguti neutron peanut
-    fiface cgpack fluka block comad erdecks erpremc minicern gdraw)
+    added gtrak gcons geocad ggeom gheisha ghits ghrout ghutils giface giopa
+    gkine gparal gscan gbase matx55 miface miguti neutron peanut
+    fiface cgpack fluka block comad erdecks erpremc gdraw
+    gstrag gbase)
+
+# directories needing special compiler treatment (less optimization)
+set(specialdir
+    minicern gphys)
+
 
 # Fortran sources
 set(fortran_sources gcinit.F)
 foreach(_directory ${directories})
-  file(GLOB add_f_sources 
+  file(GLOB add_f_sources
        ${PROJECT_SOURCE_DIR}/${_directory}/*.F)
   list(APPEND fortran_sources ${add_f_sources})
 endforeach()
 list(APPEND fortran_sources ${PROJECT_SOURCE_DIR}/minicern/lnxgs/rdmin.F)
+
+foreach(_directory ${specialdir})
+  file(GLOB special_f_sources
+       ${PROJECT_SOURCE_DIR}/${_directory}/*.F)
+    foreach(_file ${special_f_sources})
+      if(NOT CMAKE_BUILD_TYPE MATCHES Debug)
+       set_source_files_properties(${_file} PROPERTIES COMPILE_FLAGS -O1)
+      endif()
+      list(APPEND fortran_sources ${_file})
+    endforeach()
+endforeach()
 
 # Exclude some files from the list
 list(REMOVE_ITEM fortran_sources ${PROJECT_SOURCE_DIR}/gtrak/grndm.F)
@@ -71,7 +103,7 @@ list(REMOVE_ITEM fortran_sources ${PROJECT_SOURCE_DIR}/erdecks/eustep.F)
        
 # C sources
 set(c_sources)
-foreach(_directory ${directories})
+foreach(_directory ${directories} ${specialdir})
   file(GLOB add_c_sources 
        ${PROJECT_SOURCE_DIR}/${_directory}/*.c)
   list(APPEND c_sources ${add_c_sources})
